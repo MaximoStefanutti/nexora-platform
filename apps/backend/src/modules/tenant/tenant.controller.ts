@@ -10,7 +10,7 @@ export class TenantController {
     return this.tenantService.create(body);
   }
 
-  @Get()
+  @Get('slug')
   findBySlug(@Body() body: { slug: string }) {
     return this.tenantService.findBySlug(body.slug);
   }

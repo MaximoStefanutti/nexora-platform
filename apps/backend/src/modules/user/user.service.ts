@@ -26,7 +26,23 @@ export class UserService {
 
   async findByTenant(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId },
+      where: {
+        memberships: {
+          some: {
+            tenantId,
+          },
+        },
+      },
+      include: {
+        memberships: {
+          where: {
+            tenantId,
+          },
+          include: {
+            role: true,
+          },
+        },
+      },
     });
   }
 }

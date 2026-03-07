@@ -19,7 +19,21 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: {
         email,
-        tenantId: tenant.id,
+        memberships: {
+          some: {
+            tenantId: tenant.id,
+          },
+        },
+      },
+      include: {
+        memberships: {
+          where: {
+            tenantId: tenant.id,
+          },
+          include: {
+            role: true,
+          },
+        },
       },
     });
     if (!user) throw new UnauthorizedException();
@@ -32,6 +46,8 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       tenantId: tenant.id,
+      role: user.memberships[0].role.name,
+      membershipId: user.memberships[0].id,
     };
 
     const access_token = await this.jwtService.signAsync(payload);
