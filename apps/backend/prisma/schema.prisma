@@ -10,96 +10,228 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-    url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum SystemRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+// ─────────────────────────────────────────
+// PLANES Y MÓDULOS
+// ─────────────────────────────────────────
+
+model Plan {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  price       Decimal  @db.Decimal(10, 2)
+  maxStaff    Int
+  maxServices Int
+  isActive    Boolean  @default(true)
+
+  // Módulos habilitados para este plan
+  hasAppointments Boolean @default(true)
+  hasCRM          Boolean @default(true)
+  hasStats        Boolean @default(false)
+  hasEcommerce    Boolean @default(false)
+  hasInventory    Boolean @default(false)
+
+  tenants Tenant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────
+// TENANT
+// ─────────────────────────────────────────
 
 model Tenant {
-  id           String   @id @default(uuid())
-  name         String
-  slug         String   @unique
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  isActive  Boolean   @default(true)
 
-  staffCount   Int      @default(0)
-  serviceCount Int      @default(0)
+  planId    String?
+  plan      Plan?     @relation(fields: [planId], references: [id])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  memberships   Membership[]
+  services      Service[]
+  customers     Customer[]
+  appointments  Appointment[]
 
-  memberships  Membership[]
-  roles        Role[]
+  //Auditoria
+  createdBy      String?
+  updateby      String?
 
-  planId       String?
-  plan         Plan?     @relation(fields: [planId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
+// ─────────────────────────────────────────
+// USUARIOS Y ACCESO
+// ─────────────────────────────────────────
+
 model User {
-  id          String  @id @default(uuid())
-  email       String  @unique
-  password    String
-  name        String?
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String
+  name     String?
+  phone    String?
 
   memberships Membership[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 model Membership {
-  id        String  @id @default(uuid())
+  id       String     @id @default(uuid())
+  role     SystemRole @default(STAFF)
 
-  userId    String
-  tenantId  String
-  roleId    String
+  userId   String
+  tenantId String
 
-  user      User    @relation(fields: [userId], references: [id])
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
-  role      Role    @relation(fields: [roleId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // Permisos granulares opcionales sobre el rol base
+  permissions MembershipPermission[]
+
+  //Auditoria
+  createdBy      String?
+  updatedBy      String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, tenantId])
   @@index([tenantId])
   @@index([userId])
 }
 
-model Role {
+model Permission {
+  id   String @id @default(uuid())
+  // Ejemplo: "appointments:create", "crm:read", "stats:view"
+  name String @unique
+
+  memberships MembershipPermission[]
+}
+
+model MembershipPermission {
+  membershipId String
+  permissionId String
+
+  membership Membership @relation(fields: [membershipId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([membershipId, permissionId])
+}
+
+// ─────────────────────────────────────────
+// MÓDULO: TURNOS / AGENDA
+// ─────────────────────────────────────────
+
+model Service {
   id          String  @id @default(uuid())
   name        String
+  description String?
+  duration    Int     // en minutos
+  price       Decimal @db.Decimal(10, 2)
+  isActive    Boolean @default(true)
 
-  tenantId    String
-  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  memberships Membership[]
-  permissions RolePermission[]
+  appointments Appointment[]
 
-  @@unique([tenantId, name])
+  //Auditoria
+  createdBy      String?
+  updateby      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenantId])
 }
 
-model Permission {
-  id    String  @id @default(uuid())
-  name  String  @unique
+model Appointment {
+  id        String            @id @default(uuid())
+  status    AppointmentStatus @default(PENDING)
+  startTime DateTime
+  endTime   DateTime
+  notes     String?
 
-  roles RolePermission[]
+  tenantId   String
+  customerId String
+  serviceId  String
+  staffId    String           // userId del miembro con rol STAFF o ADMIN
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  service  Service  @relation(fields: [serviceId], references: [id])
+
+  //Auditoria
+  createdBy      String?
+  updateby      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([staffId])
+  @@index([startTime])        // clave para queries de agenda por fecha
 }
 
-model RolePermission {
-  roleId        String
-  permissionId  String
+// ─────────────────────────────────────────
+// MÓDULO: CRM / CLIENTES
+// ─────────────────────────────────────────
 
-  role          Role        @relation(fields: [roleId], references: [id])
-  permission    Permission  @relation(fields: [permissionId], references: [id])
+model Customer {
+  id      String         @id @default(uuid())
+  name    String
+  email   String?
+  phone   String?
+  status  CustomerStatus @default(ACTIVE)
+  notes   String?
 
-  @@id([roleId, permissionId])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  appointments Appointment[]
+
+  //Auditoria
+  createdBy      String?
+  updateby      String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([tenantId, email])  // email único por tenant, no global
+  @@index([tenantId])
 }
-
-model Plan {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  price       Decimal @db.Decimal(10,2)
-  maxStaff    Int
-  maxServices Int
-  isActive    Boolean @default(true)
-
-  tenants Tenant[]
-}
-

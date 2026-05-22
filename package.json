@@ -6,23 +6,34 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:backend": "npm run start:dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
     "commit": "cz",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "config": {
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
   },
+  "lint-staged": {
+    "apps/backend/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "apps/frontend/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
-    "@commitlint/cli": "^20.4.3",
-    "@commitlint/config-conventional": "^20.4.3",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "lint-staged": "^15.3.0"
   }
 }

@@ -1,97 +1,150 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, SystemRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log(` '🌱 Iniciando seed...`);
+
+  // ─────────────────────────────────────────
+  // PLANES
+  // ─────────────────────────────────────────
+
   await prisma.plan.createMany({
     data: [
-      { name: 'Free', price: 0, maxStaff: 2, maxServices: 5 },
-      { name: 'Pro', price: 29.99, maxStaff: 20, maxServices: 50 },
-      { name: 'Enterprise', price: 99.99, maxStaff: 200, maxServices: 500 },
+      {
+        name: 'Free',
+        price: 0,
+        maxStaff: 2,
+        maxServices: 5,
+        hasAppointments: true,
+        hasCRM: true,
+        hasStats: false,
+        hasEcommerce: false,
+        hasInventory: false,
+      },
+      {
+        name: 'Pro',
+        price: 29.99,
+        maxStaff: 20,
+        maxServices: 50,
+        hasAppointments: true,
+        hasCRM: true,
+        hasStats: true,
+        hasEcommerce: false,
+        hasInventory: false,
+      },
+      {
+        name: 'Enterprise',
+        price: 99.99,
+        maxStaff: 200,
+        maxServices: 500,
+        hasAppointments: true,
+        hasCRM: true,
+        hasStats: true,
+        hasEcommerce: true,
+        hasInventory: true,
+      },
     ],
     skipDuplicates: true,
   });
+  console.log('✅ Planes creados');
 
+  // ─────────────────────────────────────────
+  // PERRMISOS
+  // Formato: "modulo:accion
+  // ─────────────────────────────────────────
   const permissions = [
-    'user.create',
-    'user.update',
-    'user.delete',
+    // Usuarios
+    'user:create',
+    'user:read',
+    'user:update',
+    'user:delete',
 
-    'staff.create',
-    'staff.update',
-    'staff.delete',
+    // Staff / Memberships
+    'staff:create',
+    'staff:read',
+    'staff:update',
+    'staff:delete',
 
-    'service.create',
-    'service.update',
-    'service.delete',
+    // Servicios
+    'service:create',
+    'service:read',
+    'service:update',
+    'service:delete',
 
-    'appointment.create',
-    'appointment.update',
-    'appointment.delete',
+    // Turnos
+    'appointment:create',
+    'appointment:read',
+    'appointment:update',
+    'appointment:delete',
+
+    // CRM / Clientes
+    'customer:create',
+    'customer:read',
+    'customer:update',
+    'customer:delete',
+
+    // Estadísticas
+    'stats:view',
   ];
 
   await prisma.permission.createMany({
     data: permissions.map((name) => ({ name })),
     skipDuplicates: true,
   });
+  console.log('✅ Permisos creados');
+
+  // ─────────────────────────────────────────
+  // TENANT DE DEMO
+  // ─────────────────────────────────────────
+
+  const freePlan = await prisma.plan.findUnique({ where: { name: 'Free' } });
 
   const tenant = await prisma.tenant.upsert({
-    where: { slug: 'demo-salon' },
+    where: { slug: 'demo-nexora' },
     update: {},
     create: {
-      name: 'Demo Salon',
-      slug: 'demo-salon',
+      name: 'Demo Nexora',
+      slug: 'demo-nexora',
+      planId: freePlan?.id,
+    },
+  });
+  console.log('✅ Tenant demo creado');
+
+  // ─────────────────────────────────────────
+  // USUARIO OWNER DEL TENANT DEMO
+  // ─────────────────────────────────────────
+
+  const ownerUser = await prisma.user.upsert({
+    where: { email: 'owner@demo-nexora.com' },
+    update: {},
+    create: {
+      email: 'owner@demo-nexora.com',
+      // En producción esto iría hasheado - lo deejamos claro con el nombre
+      password: 'CHANGE_ME_BEFORE_PRODUCTION',
+      name: 'Owner Demo',
     },
   });
 
-  const roles = ['Owner', 'Admin', 'Staff'];
-
-  await prisma.role.createMany({
-    data: roles.map((name) => ({
-      name,
+  await prisma.membership.upsert({
+    where: {
+      userId_tenantId: {
+        userId: ownerUser.id,
+        tenantId: tenant.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: ownerUser.id,
       tenantId: tenant.id,
-    })),
-    skipDuplicates: true,
+      role: SystemRole.OWNER,
+      isActive: true,
+    },
   });
 
-  const [allPermissions, allRoles] = await Promise.all([
-    prisma.permission.findMany(),
-    prisma.role.findMany({
-      where: { tenantId: tenant.id },
-    }),
-  ]);
+  console.log('✅ Usuario owner creado y asignado al tenant demo');
 
-  const roleMap: Record<string, (typeof allRoles)[number]> = Object.fromEntries(
-    allRoles.map((role) => [role.name, role]),
-  );
-
-  const ownerPermissions = allPermissions.map((perm) => ({
-    roleId: roleMap['Owner'].id,
-    permissionId: perm.id,
-  }));
-
-  const adminPermissions = allPermissions
-    .filter((perm) => !perm.name.startsWith('user.delete'))
-    .map((perm) => ({
-      roleId: roleMap['Admin'].id,
-      permissionId: perm.id,
-    }));
-
-  const staffPermissions = allPermissions
-    .filter(
-      (perm) =>
-        perm.name.startsWith('appointment') || perm.name.startsWith('service'),
-    )
-    .map((perm) => ({
-      roleId: roleMap['Staff'].id,
-      permissionId: perm.id,
-    }));
-
-  await prisma.rolePermission.createMany({
-    data: [...ownerPermissions, ...adminPermissions, ...staffPermissions],
-  });
-
-  console.log('Seeding completed!');
+  console.log('🎉 Seed completado exitosamente');
 }
 
 main()
@@ -99,7 +152,7 @@ main()
     await prisma.$disconnect();
   })
   .catch(async (e) => {
-    console.error(e);
+    console.error('❌ Error durante el seed:', e);
     await prisma.$disconnect();
     process.exit(1);
   });
