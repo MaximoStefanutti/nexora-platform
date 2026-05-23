@@ -82,7 +82,7 @@ model Tenant {
 
   //Auditoria
   createdBy      String?
-  updateby      String?
+  updatedBy      String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -170,10 +170,11 @@ model Service {
 
   //Auditoria
   createdBy      String?
-  updateby      String?
+  updatedBy      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@index([tenantId])
 }
@@ -196,7 +197,7 @@ model Appointment {
 
   //Auditoria
   createdBy      String?
-  updateby      String?
+  updatedBy      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -226,7 +227,7 @@ model Customer {
 
   //Auditoria
   createdBy      String?
-  updateby      String?
+  updatedBy      String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

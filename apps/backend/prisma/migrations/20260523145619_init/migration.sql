@@ -34,7 +34,7 @@ CREATE TABLE "Tenant" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "planId" TEXT,
     "createdBy" TEXT,
-    "updateby" TEXT,
+    "updatedBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -97,9 +97,10 @@ CREATE TABLE "Service" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "tenantId" TEXT NOT NULL,
     "createdBy" TEXT,
-    "updateby" TEXT,
+    "updatedBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Service_pkey" PRIMARY KEY ("id")
 );
@@ -116,7 +117,7 @@ CREATE TABLE "Appointment" (
     "serviceId" TEXT NOT NULL,
     "staffId" TEXT NOT NULL,
     "createdBy" TEXT,
-    "updateby" TEXT,
+    "updatedBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -133,7 +134,7 @@ CREATE TABLE "Customer" (
     "notes" TEXT,
     "tenantId" TEXT NOT NULL,
     "createdBy" TEXT,
-    "updateby" TEXT,
+    "updatedBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),

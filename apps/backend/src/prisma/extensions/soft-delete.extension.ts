@@ -1,6 +1,11 @@
 import { Prisma } from '@prisma/client';
 
-export const SOFT_DELETE_EXTENSION = ['Tenant', 'User', 'Customer'] as const;
+export const SOFT_DELETE_EXTENSION = [
+  'Tenant',
+  'User',
+  'Customer',
+  'Service',
+] as const;
 
 export type SoftDeletemodel = (typeof SOFT_DELETE_EXTENSION)[number];
 

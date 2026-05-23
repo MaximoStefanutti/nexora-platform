@@ -14,6 +14,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { CommonModule } from './common/common.module';
 import { MembershipModule } from './modules/membership/membership.module';
+import { ServiceModule } from './modules/service/service.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MembershipModule } from './modules/membership/membership.module';
     UserModule,
     TenantModule,
     MembershipModule,
+    ServiceModule,
   ],
   providers: [
     {
