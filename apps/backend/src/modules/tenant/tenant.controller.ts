@@ -4,6 +4,7 @@ import { CreateeTenantDto } from './dto/createe-tenant.dto';
 import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
 import { AuthUser } from 'src/common/interfaces/jwt-payload.interface';
 import { Public } from 'src/common/decorators/public.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 @Controller('tenant')
 export class TenantController {
@@ -12,7 +13,7 @@ export class TenantController {
   // Crearr tenant - cualquier usuario autenticado puede crear uno
 
   @Post()
-  create(@Body() dto: CreateeTenantDto, @CurrentTenant() user: AuthUser) {
+  create(@Body() dto: CreateeTenantDto, @CurrentUser() user: AuthUser) {
     return this.tenantService.create(dto, user.userId);
   }
 

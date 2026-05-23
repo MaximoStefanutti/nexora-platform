@@ -20,7 +20,7 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // Verifcamos que el tenant existe y está activo
-    const tenant = await this.prisma.db.tenant.findUnique({
+    const tenant = await this.prisma.db.tenant.findFirst({
       where: { id: tenantId, isActive: true },
     });
 
