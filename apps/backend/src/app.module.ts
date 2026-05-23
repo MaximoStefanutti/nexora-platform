@@ -16,6 +16,7 @@ import { CommonModule } from './common/common.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { ServiceModule } from './modules/service/service.module';
 import { CustomerModule } from './modules/customer/customer.module';
+import { AppointmentModule } from './modules/appointment/appointment.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CustomerModule } from './modules/customer/customer.module';
     MembershipModule,
     ServiceModule,
     CustomerModule,
+    AppointmentModule,
   ],
   providers: [
     {
