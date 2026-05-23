@@ -15,6 +15,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { CommonModule } from './common/common.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { ServiceModule } from './modules/service/service.module';
+import { CustomerModule } from './modules/customer/customer.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ServiceModule } from './modules/service/service.module';
     TenantModule,
     MembershipModule,
     ServiceModule,
+    CustomerModule,
   ],
   providers: [
     {
