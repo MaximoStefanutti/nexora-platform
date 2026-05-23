@@ -1,4 +1,5 @@
 import { PrismaClient, SystemRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -115,13 +116,14 @@ async function main() {
   // USUARIO OWNER DEL TENANT DEMO
   // ─────────────────────────────────────────
 
+  const hashedPassword = await bcrypt.hash('CHANGE_ME_BEFORE_PRODUCTION', 12);
+
   const ownerUser = await prisma.user.upsert({
     where: { email: 'owner@demo-nexora.com' },
     update: {},
     create: {
       email: 'owner@demo-nexora.com',
-      // En producción esto iría hasheado - lo deejamos claro con el nombre
-      password: 'CHANGE_ME_BEFORE_PRODUCTION',
+      password: hashedPassword,
       name: 'Owner Demo',
     },
   });

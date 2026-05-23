@@ -1,23 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JwtPayload } from 'src/common/interfaces/jwt-payload.interface';
+import {
+  AuthUser,
+  JwtPayload,
+} from 'src/common/interfaces/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET!,
+      secretOrKey: process.env.JWT_SECRET ?? 'fallback-secret',
     });
   }
 
-  validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<AuthUser> {
+    // verificamos que el usuario y el membership todavía existan y esten activos
+    console.log('JWT paylload', payload);
+
+    const membership = await this.prisma.db.membership.findFirst({
+      where: {
+        id: payload.membershipId,
+        userId: payload.sub,
+        tenantId: payload.tenantId,
+        isActive: true,
+      },
+    });
+    console.log('Membership found', membership);
+
+    if (!membership) {
+      throw new UnauthorizedException('Invalid sesion or expired');
+    }
+
     return {
-      sub: payload.sub,
+      userId: payload.sub,
       email: payload.email,
       tenantId: payload.tenantId,
+      role: payload.role,
+      membershipId: payload.membershipId,
     };
   }
 }

@@ -11,7 +11,7 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string, tenantSlug: string) {
-    const tenant = await this.prisma.db.tenant.findUnique({
+    const tenant = await this.prisma.db.tenant.findFirst({
       where: { slug: tenantSlug },
     });
     if (!tenant) throw new UnauthorizedException('Invalid credentials');

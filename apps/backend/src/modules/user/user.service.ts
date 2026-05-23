@@ -17,6 +17,14 @@ export class UserService {
   async findEmail(email: string) {
     return this.prisma.db.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -25,9 +33,19 @@ export class UserService {
       where: {
         memberships: { some: { tenantId } },
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        createdAt: true,
         memberships: {
           where: { tenantId },
+          select: {
+            id: true,
+            role: true,
+            isActive: true,
+          },
         },
       },
     });
