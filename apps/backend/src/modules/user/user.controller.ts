@@ -14,7 +14,7 @@ export class UserController {
     return this.userService.createUser(dto);
   }
 
-  @Get()
+  @Get('me')
   getUsers(@CurrentUser() user: AuthUser) {
     return this.userService.findEmail(user.email);
   }
