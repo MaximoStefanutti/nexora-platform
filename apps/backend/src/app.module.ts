@@ -12,14 +12,18 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { CommonModule } from './common/common.module';
+import { MembershipModule } from './modules/membership/membership.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    CommonModule,
     AuthModule,
     UserModule,
     TenantModule,
+    MembershipModule,
   ],
   providers: [
     {
@@ -36,7 +40,7 @@ export class AppModule implements NestModule {
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'health', method: RequestMethod.GET },
         { path: 'tenant', method: RequestMethod.POST },
-        { path: 'tenant/slug/(.*)', method: RequestMethod.GET },
+        { path: 'tenant/slug/:slug', method: RequestMethod.GET },
       )
       .forRoutes('*'); // aplica a todas las rutas excepto las excluidas
   }

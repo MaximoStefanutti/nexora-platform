@@ -20,7 +20,7 @@ export class UserController {
   }
 
   @Get('tenant')
-  getUsersByTenant(@CurrentTenant() dto: CreateUserDto) {
-    return this.userService.findByTenant(dto.tenantId);
+  getUsersByTenant(@CurrentTenant() tenantId: string) {
+    return this.userService.findByTenant(tenantId);
   }
 }

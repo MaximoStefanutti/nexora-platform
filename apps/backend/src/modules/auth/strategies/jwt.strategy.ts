@@ -19,8 +19,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthUser> {
     // verificamos que el usuario y el membership todavía existan y esten activos
-    console.log('JWT paylload', payload);
-
     const membership = await this.prisma.db.membership.findFirst({
       where: {
         id: payload.membershipId,
@@ -29,7 +27,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         isActive: true,
       },
     });
-    console.log('Membership found', membership);
 
     if (!membership) {
       throw new UnauthorizedException('Invalid sesion or expired');
