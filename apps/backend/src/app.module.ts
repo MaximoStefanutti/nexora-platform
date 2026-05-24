@@ -17,6 +17,7 @@ import { MembershipModule } from './modules/membership/membership.module';
 import { ServiceModule } from './modules/service/service.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { AppointmentModule } from './modules/appointment/appointment.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AppointmentModule } from './modules/appointment/appointment.module';
     CustomerModule,
     AppointmentModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

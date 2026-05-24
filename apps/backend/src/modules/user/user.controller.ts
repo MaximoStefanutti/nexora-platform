@@ -10,8 +10,12 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @Post()
-  createUser(@Body() dto: CreateUserDto) {
-    return this.userService.createUser(dto);
+  createUser(
+    @Body() dto: CreateUserDto,
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.userService.createUser(dto, tenantId, user.userId);
   }
 
   @Get('me')
