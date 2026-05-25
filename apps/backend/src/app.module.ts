@@ -18,6 +18,7 @@ import { ServiceModule } from './modules/service/service.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { AppointmentModule } from './modules/appointment/appointment.module';
 import { AppController } from './app.controller';
+import { StatsModule } from './modules/stats/stats.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AppController } from './app.controller';
     ServiceModule,
     CustomerModule,
     AppointmentModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [
