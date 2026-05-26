@@ -7,6 +7,14 @@ import { Public } from 'src/common/decorators/public.decorator';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  /**
+   * Autentica un usuario y retorna un JWT.
+   * El tenantSlug identifica el contexto del tenant al que accede el usuario.
+   *
+   * POST /auth/login
+   * @returns { accessToken: string }
+   */
+
   @Public()
   @Post('login')
   login(@Body() dto: LoginDto) {
