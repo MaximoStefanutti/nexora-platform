@@ -193,7 +193,7 @@ export class AppointmentService {
     );
 
     // Validamos solapamiento de cliente
-    await this.appointmentHelper.validateCustomerAvailabilty(
+    await this.appointmentHelper.validateCustomerAvailability(
       dto.customerId,
       tenantId,
       startTime,
