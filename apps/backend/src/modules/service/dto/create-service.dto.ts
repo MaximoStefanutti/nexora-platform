@@ -18,7 +18,7 @@ export class CreateServiceDto {
 
   @IsNumber()
   @Min(1)
-  duration?: number;
+  duration: number;
 
   @IsNumber()
   @Min(0)

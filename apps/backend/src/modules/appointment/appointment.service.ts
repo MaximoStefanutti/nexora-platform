@@ -11,6 +11,19 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
+/**
+ * Servicio de gestión de turnos (appointments)
+ * Un turno representa una reserva de tiempo entre un cliente,
+ * un miembro de staff y un servicio.
+ *
+ * Reglas de negocio:
+ * - El endTime se calcula automáticamente desde startTime + duration del servicio.
+ * - No puede haber solapamiento de horarios para el mismo staff.
+ * - No puede haber solapamiento de horarios para el mismo cliente.
+ * - Solo el staff asignado o un ADMIN/OWNER pueede modificar o cancelar un turno.
+ * - Los turnos completados o cancelados no se pueden ser modificados.
+ */
+
 @Injectable()
 export class AppointmentService {
   constructor(
@@ -18,6 +31,13 @@ export class AppointmentService {
     private membershipHelper: MembershipHelper,
     private appointmentHelper: AppointmentHelper,
   ) {}
+
+  /**
+   * Lista todos los turnos del tenant ordenados por fecha de inicio.
+   * Incluye datos deel cliente y servicio asociados.
+   *
+   * @param tenantId - ID del tenant actual.
+   */
 
   async findAll(tenantId: string) {
     return this.prisma.db.appointment.findMany({
@@ -41,8 +61,16 @@ export class AppointmentService {
     });
   }
 
+  /**
+   * Obtiene el detalle completo de un turno específico.
+   *
+   * @param id - UUID del turno.
+   * @param tenantId - ID del tenant actual.
+   * @throws NotFoundException si el turno no existe en el tenant.
+   */
+
   async findOne(id: string, tenantId: string) {
-    const appointmeent = await this.prisma.db.appointment.findFirst({
+    const appointment = await this.prisma.db.appointment.findFirst({
       where: { id, tenantId },
       select: {
         id: true,
@@ -61,11 +89,19 @@ export class AppointmentService {
         updatedAt: true,
       },
     });
-    if (!appointmeent) {
+    if (!appointment) {
       throw new NotFoundException('Shift not found');
     }
-    return appointmeent;
+    return appointment;
   }
+
+  /**
+   * Lista los turnos de un día específico eexcluyendo los cancelados.
+   * Usado para la vista de ageenda diaria del tenant
+   *
+   * @param tenantId - ID del tenant actual.
+   * @param date - Fecha en formato YYYY.MM.DD
+   */
 
   async findByDate(tenantId: string, date: string) {
     const start = new Date(`${date}T00:00:00.000Z`);
@@ -73,9 +109,11 @@ export class AppointmentService {
     const end = new Date(`${date}T23:59:59.999Z`);
 
     return this.prisma.db.appointment.findMany({
+      // Construimos el rango del día en UTC para consistencia.
       where: {
         tenantId,
         startTime: { gte: start, lte: end },
+        //Excluimos cancelados - no tiene valor en la agenda diaria.
         status: { notIn: [AppointmentStatus.CANCELLED] },
       },
       select: {
@@ -95,8 +133,19 @@ export class AppointmentService {
     });
   }
 
+  /**
+   * Crea un nuevo turno con validaciones de disponibilidad.
+   * Calcula el endTime automáticamente desde startTime + duration del servicio.
+   *
+   * @param dto - Datos del turno (startTime, customerId, serviceId, staffId, notes).
+   * @param tenantId - ID del tenant actual.
+   * @param userId - userId dl usuario que crea el turno (para auditoría).
+   * @throws NotFoundException si el servicio, cliente o staff no existe.
+   * @throws ConflicException si hay solapamiento de horarios.
+   */
+
   async create(dto: CreateAppointmentDto, tenantId: string, userId: string) {
-    // Verificamos que el servicio existe y pertence al tenant
+    // Verificamos que el servicio existe, pertenezca al tenant y que este activo.
     const service = await this.prisma.db.service.findFirst({
       where: { id: dto.serviceId, tenantId, isActive: true },
     });
@@ -106,7 +155,6 @@ export class AppointmentService {
     }
 
     // Verificamos que el cliente existe y pertenece al tenant
-
     const customer = await this.prisma.db.customer.findFirst({
       where: { id: dto.customerId, tenantId },
     });
@@ -130,7 +178,7 @@ export class AppointmentService {
       );
     }
 
-    // Calculamos endTime desde startTime + duration del servicio
+    // Calculamos endTime automáticamente: startTime + duration del servicio
     const startTime = new Date(dto.startTime);
     const endTime = new Date(
       startTime.getTime() + service.duration * 60 * 1000,
@@ -178,6 +226,18 @@ export class AppointmentService {
     });
   }
 
+  /**
+   * Actualiza el estado o notas de un turno existente.
+   * No permite modificar turnos completados o cancelados.
+   * Permite solamente que lo modifique el staff asignado o OWNER/ADMIN del negocio.
+   *
+   * @param id - UUDI del turno.
+   * @param dto - Campos a actualizar (status, notes).
+   * @param tenantId - ID del tenant actual.
+   * @param userId - userId del usuario que actualiza.
+   * @throws NotFoundExcpetion si no tiene permisos o el turno está finalizado.
+   */
+
   async update(
     id: string,
     dto: UpdateAppointmentDto,
@@ -192,12 +252,13 @@ export class AppointmentService {
       throw new NotFoundException('Shift not found');
     }
 
-    // Validamos peemisos - solo staff asignado o ADMIN/OWNER
+    // Validamos permisos - solo staff asignado o ADMIN/OWNER pueda modificar.
     await this.appointmentHelper.validateCanModify(
       appointment.staffId,
       userId,
       tenantId,
     );
+    // Los turnos completados o cancelados son inmutables.
     if (
       appointment.status === AppointmentStatus.COMPLETED ||
       appointment.status === AppointmentStatus.CANCELLED
@@ -223,7 +284,19 @@ export class AppointmentService {
     });
   }
 
-  async canceld(id: string, tenantId: string, userId: string) {
+  /**
+   * Cancela un turno cambiando su estado a CANCELLED.
+   * Los turnos completados no se pueden cancelar.
+   *
+   * @param id - UUID del turno.
+   * @param tenantId - ID del tenant actual.
+   * @param userId - userID del usuario que cancela.
+   * @throws NotFoundException si el turno no existe.
+   * @throws ConflicException si el turno ya esta cancelado
+   * @throws ForbiddenException si no tiene permisos o el turno está completo.
+   */
+
+  async cancel(id: string, tenantId: string, userId: string) {
     const appointment = await this.prisma.db.appointment.findFirst({
       where: { id, tenantId },
     });
@@ -232,6 +305,7 @@ export class AppointmentService {
       throw new NotFoundException('Shift not found');
     }
 
+    // Validamos permisos - solo staff asignado o ADMIN/OWNER puede cancelar.
     await this.appointmentHelper.validateCanModify(
       appointment.staffId,
       userId,
