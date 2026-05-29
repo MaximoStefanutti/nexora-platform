@@ -2,6 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Public } from 'src/common/decorators/public.decorator';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -14,7 +15,17 @@ export class AuthController {
    * POST /auth/login
    * @returns { accessToken: string }
    */
-
+  @ApiOperation({
+    summary: 'Iniciar sesión',
+    description:
+      'Autentica un usuario en el contexto de un tenant y retorna un JWT',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Login exitoso',
+    schema: { example: { accessToken: 'eyJhbGci...' } },
+  })
+  @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   @Public()
   @Post('login')
   login(@Body() dto: LoginDto) {

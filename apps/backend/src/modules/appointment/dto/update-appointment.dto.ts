@@ -1,19 +1,21 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AppointmentStatus } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class UpdateAppointmentDto {
-  @IsOptional()
-  @IsDateString()
-  startTime?: string;
-
-  @IsOptional()
-  @IsString()
-  staffId: string;
-
+  @ApiPropertyOptional({
+    example: 'Cliente llego tarde',
+    description: 'Notas del turno',
+  })
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({
+    enum: AppointmentStatus,
+    example: AppointmentStatus.CONFIRMED,
+    description: 'Nuevo estado del turno',
+  })
   @IsOptional()
   @IsEnum(AppointmentStatus)
   status?: AppointmentStatus;

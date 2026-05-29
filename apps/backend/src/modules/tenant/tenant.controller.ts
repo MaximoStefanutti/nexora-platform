@@ -5,6 +5,13 @@ import { CurrentTenant } from 'src/common/decorators/current-tenant.decorator';
 import { AuthUser } from 'src/common/interfaces/jwt-payload.interface';
 import { Public } from 'src/common/decorators/public.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import {
+  ApiBearerAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
 /**
  * Controller dee gestión dee tenants.
@@ -17,6 +24,8 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
  * - GET /tenant/me - info del tenant actual con contadores.
  */
 
+@ApiTags('Tenant')
+@ApiBearerAuth('JWT')
 @Controller('tenant')
 export class TenantController {
   constructor(private tenantService: TenantService) {}
@@ -26,7 +35,12 @@ export class TenantController {
    * No requieree x-tenant-id porquee es una operación de creeación inicial.
    * POST /tenant
    */
-
+  @ApiOperation({
+    summary: 'Crear tenant',
+    description: 'Creea un nuevo tenant y asigna al usuario actual como OWNER',
+  })
+  @ApiResponse({ status: 201, description: 'Tenant creado exitosamente' })
+  @ApiResponse({ status: 409, description: 'El slug ya está en uso' })
   @Post()
   create(@Body() dto: CreateTenantDto, @CurrentUser() user: AuthUser) {
     return this.tenantService.create(dto, user.userId);
@@ -38,7 +52,13 @@ export class TenantController {
    * y para validar que el slug existe antes de intentar autenticarse.
    * GET /tenant/slug/:slug
    */
-
+  @ApiOperation({
+    summary: 'Buscar tenant por slug',
+    description:
+      'Retorna información pública del tenant. Usado en la pantalla de login del frontend',
+  })
+  @ApiResponse({ status: 200, description: 'Tenant encontrado' })
+  @ApiResponse({ status: 404, description: 'Tenant no encontrado' })
   @Public()
   @Get('slug/:slug')
   findBySlug(@Param('slug') slug: string) {
@@ -50,7 +70,17 @@ export class TenantController {
    * El tenantId se obtiene del JWT vía @CurrentTenant()
    * GET /tenant/me
    */
-
+  @ApiOperation({
+    summary: 'Info del tenant actual',
+    description:
+      'Retorna información completa del tenant co ncontadores de miembros y servicios',
+  })
+  @ApiResponse({ status: 200, description: 'Infromación del tenant' })
+  @ApiHeader({
+    name: 'x-tenant-id',
+    required: true,
+    description: 'ID del tenant',
+  })
   @Get('me')
   getMytenant(@CurrentTenant() tenantId: string) {
     return this.tenantService.findById(tenantId);

@@ -86,7 +86,7 @@ async function bootstrap() {
       },
     });
     logger.log(
-      `📚 Swagger disponible en http://localhost:${process.env.PORT ?? 3000}/api`,
+      `📚 Swagger disponible en http://localhost:${process.env.PORT ?? 3001}/api`,
     );
   }
 

@@ -116,7 +116,7 @@ async function main() {
   // USUARIO OWNER DEL TENANT DEMO
   // ─────────────────────────────────────────
 
-  const hashedPassword = await bcrypt.hash('CHANGE_ME_BEFORE_PRODUCTION', 12);
+  const hashedPassword = await bcrypt.hash('Nexora2026!', 12);
 
   const ownerUser = await prisma.user.upsert({
     where: { email: 'owner@demo-nexora.com' },
