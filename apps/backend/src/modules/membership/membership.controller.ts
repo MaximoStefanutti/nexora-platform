@@ -116,7 +116,7 @@ export class MembershipController {
     description:
       'Desactiva la membresía de un usuario en el tenant. El OWNER no puede ser removido',
   })
-  @ApiResponse({ status: 200, description: 'Miembro removid' })
+  @ApiResponse({ status: 200, description: 'Miembro removido' })
   @ApiResponse({ status: 403, description: 'No se puede remover al OWNER' })
   @ApiResponse({ status: 404, description: 'Membresía no encontrada' })
   @Delete(':id')
