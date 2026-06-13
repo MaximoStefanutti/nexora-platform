@@ -27,10 +27,24 @@ import {
  * El tenant filtra primero, luego el soft-delete y finalmente la auditorio registra.
  */
 
+function createBaseClient() {
+  return new PrismaClient({
+    log:
+      process.env.NODE_ENV === 'development'
+        ? [
+            { emit: 'event', level: 'query' },
+            { emit: 'stdout', level: 'error' },
+            { emit: 'stdout', level: 'warn' },
+          ]
+        : [{ emit: 'stdout', level: 'error' }],
+    omit: { user: { password: true } }, // Nunca incluir el hash de password en la respuesta
+  });
+}
+
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
-  private baseClient: PrismaClient;
+  private baseClient: ReturnType<typeof createBaseClient>;
 
   /**
    * Cliente base con soft-delete aplicado automáticamente.
@@ -42,17 +56,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   readonly db: ReturnType<typeof this.buildBaseClient>;
 
   constructor() {
-    this.baseClient = new PrismaClient({
-      log:
-        process.env.NODE_ENV === 'development'
-          ? [
-              { emit: 'event', level: 'query' },
-              { emit: 'stdout', level: 'error' },
-              { emit: 'stdout', level: 'warn' },
-            ]
-          : [{ emit: 'stdout', level: 'error' }],
-    });
-
+    this.baseClient = createBaseClient();
     this.db = this.buildBaseClient();
   }
 

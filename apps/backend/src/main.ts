@@ -3,10 +3,14 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Booststrap');
+
+  app.enableShutdownHooks();
 
   // Validación global de DTOs
   app.useGlobalPipes(
@@ -23,9 +27,32 @@ async function bootstrap() {
   //Global Fliters
   app.useGlobalFilters(new PrismaExceptionFilter());
 
+  //Helmet para seguridad HTTP headers
+  app.use(
+    helmet(
+      process.env.NODE_ENV === 'production'
+        ? {
+            contentSecurityPolicy: {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", 'cdn.jsdelivr.net'],
+                styleSrc: ["'self'", 'cdn.jsdelivr.net'],
+                imgSrc: ["'self'", 'data:', 'cdn.jsdelivr.net'],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'", 'cdn.jsdelivr.net'],
+              },
+            },
+          }
+        : undefined,
+    ),
+  );
+
+  // Compression para respuestas más pequeñas
+  app.use(compression());
+
   //CORS para el forntend Netx.js
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3001',
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   });
 
@@ -86,11 +113,11 @@ async function bootstrap() {
       },
     });
     logger.log(
-      `📚 Swagger disponible en http://localhost:${process.env.PORT ?? 3001}/api`,
+      `📚 Swagger disponible en http://localhost:${process.env.PORT}/api`,
     );
   }
 
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 3001;
   await app.listen(port);
   logger.log(`🚀 Server running on http://localhost:${port}`);
 }
