@@ -126,6 +126,7 @@ async function main() {
       password: hashedPassword,
       name: 'Owner Demo',
     },
+    omit: { password: false }, // Nunca incluir el hash de password en la respuesta
   });
 
   await prisma.membership.upsert({
