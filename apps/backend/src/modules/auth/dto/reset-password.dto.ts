@@ -4,7 +4,7 @@ import { IsString, Matches, MinLength } from 'class-validator';
 export class ResetPasswordDto {
   @ApiProperty({
     example: '550557dd3aad1db0f07cb99325fac6ee32fd...',
-    description: 'Token obtendio de la solicitud de resetear password',
+    description: 'Token obtenido de la solicitud de resetear password',
   })
   @IsString()
   @Matches(/^[a-f0-9]{64}$/, {

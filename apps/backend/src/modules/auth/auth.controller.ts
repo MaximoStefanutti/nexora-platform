@@ -122,7 +122,7 @@ export class AuthController {
   /**
    * Inica el flujo de reuperación de contraseña.
    * Si el email corresponde a un usuario, genera un reset token de un solo uso
-   * y vida corta (1h) y lo envia por emial. En desarrollo, el token se escribe
+   * y vida corta (1h) y lo envía por emial. En desarrollo, el token se escribe
    * en el log del servidor (no se expone nunca la respuesta HTTP)
    *
    * Respode SIEMPRE 204, exista o no el emial, para no filtrar que cuentas
@@ -134,11 +134,11 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Solicitar recuperación de contraseña',
-    description: 'Genera y envia un token de recuperación',
+    description: 'Genera y envía un token de recuperación',
   })
   @ApiResponse({
     status: 204,
-    description: 'Solicitud procesada (no confirma si el emial existe)',
+    description: 'Solicitud procesada (no confirma si el email existe)',
   })
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @HttpCode(204)
@@ -156,6 +156,20 @@ export class AuthController {
    * No inica sesión: el usuario debe volver a loguearse con la nueva contraseña.
    * POST /auth/reset-password
    */
+  @ApiOperation({
+    summary: 'Restablecer contraseña',
+    description:
+      'Cambia la contraseña usando un reset token válido y cierra todas las ' +
+      'sesiones activas del usuario. Requiere re-login posterior.',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Contraseña actualizada correctamente',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido, ya usado o expirado',
+  })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(204)
   @Public()
