@@ -9,11 +9,13 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import slugify from 'slugify';
 import { SystemRole } from '@prisma/client';
-import {
-  JwtPayload,
-  RefreshTokenPayload,
-} from 'src/common/interfaces/jwt-payload.interface';
+import { JwtPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { RegisterDto } from './dto/register.dto';
+import {
+  generateTokenHelper,
+  hashToken,
+} from 'src/common/helpers/generate-token.helper';
+import { randomUUID } from 'crypto';
 
 /**
  * Servicio de autenticación.
@@ -28,6 +30,8 @@ import { RegisterDto } from './dto/register.dto';
  * La sesión se puede invalidar en cualquier momento desactivando la
  * membership: tanto JwtStrategy como /auth/refresh revalidan en DB.
  */
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -41,23 +45,22 @@ export class AuthService {
    * El access usa el secreto/expiración por defecto del JwtModule.
    * El refresh se firma con su propio secreto y expiración.
    */
-  private async generateTokens(payload: JwtPayload) {
-    const refreshPayload: RefreshTokenPayload = {
-      sub: payload.sub,
-      tenantId: payload.tenantId,
-      membershipId: payload.membershipId,
-    };
+  private async generateTokens(payload: JwtPayload, familyId?: string) {
+    const accessToken = await this.jwtService.signAsync(payload);
 
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload),
-      this.jwtService.signAsync(refreshPayload, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: (this.config.get<string>('JWT_REFRESH_EXPIRATION') ??
-          '7d') as import('ms').StringValue,
-      }),
-    ]);
+    const { raw, hash } = generateTokenHelper();
+    const family = familyId ?? randomUUID();
+    const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
 
-    return { accessToken, refreshToken };
+    await this.prisma.db.refreshToken.create({
+      data: {
+        tokenHash: hash,
+        familyId: family,
+        membershipId: payload.membershipId,
+        expiresAt,
+      },
+    });
+    return { accessToken, refreshToken: raw };
   }
 
   /**
@@ -207,37 +210,76 @@ export class AuthService {
    *         o si la membership ya no está activa.
    */
   async refresh(refreshToken: string) {
-    let payload: RefreshTokenPayload;
-    try {
-      payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
-        refreshToken,
-        { secret: this.config.get<string>('JWT_REFRESH_SECRET') },
-      );
-    } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
-    }
+    const tokenHash = hashToken(refreshToken);
 
-    // Revalidamos en DB: permite invalidar sesiones desactivando la membership.
-    const membership = await this.prisma.db.membership.findFirst({
-      where: {
-        id: payload.membershipId,
-        userId: payload.sub,
-        tenantId: payload.tenantId,
-        isActive: true,
+    const stored = await this.prisma.db.refreshToken.findUnique({
+      where: { tokenHash },
+      include: {
+        membership: {
+          include: { user: { select: { email: true } } },
+        },
       },
-      include: { user: { select: { email: true } } },
     });
 
-    if (!membership) {
-      throw new UnauthorizedException('Invalid session or expired');
+    if (!stored) throw new UnauthorizedException('Invalid refresh token');
+
+    if (stored.revokedAt) {
+      await this.prisma.db.refreshToken.updateMany({
+        where: { familyId: stored.familyId },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token has been revoked');
     }
 
-    return this.generateTokens({
-      sub: payload.sub,
-      email: membership.user.email,
-      tenantId: payload.tenantId,
-      role: membership.role,
-      membershipId: membership.id,
+    if (stored.expiresAt < new Date())
+      throw new UnauthorizedException('Refresh token has expired');
+
+    if (!stored.membership.isActive) {
+      throw new UnauthorizedException('Membership is no longer active');
+    }
+
+    const payload: JwtPayload = {
+      sub: stored.membership.userId,
+      email: stored.membership.user.email,
+      tenantId: stored.membership.tenantId,
+      role: stored.membership.role,
+      membershipId: stored.membership.id,
+    };
+
+    const { raw, hash } = generateTokenHelper();
+    const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await this.prisma.runInTransaction(async (tx) => {
+      const created = await tx.refreshToken.create({
+        data: {
+          tokenHash: hash,
+          familyId: stored.familyId,
+          membershipId: stored.membership.id,
+          expiresAt,
+        },
+      });
+      await tx.refreshToken.update({
+        where: { id: stored.id },
+        data: { revokedAt: new Date(), replacedById: created.id },
+      });
+    });
+
+    return { accessToken, refreshToken: raw };
+  }
+
+  async logout(refreshToken: string) {
+    const tokenHash = hashToken(refreshToken);
+
+    const stored = await this.prisma.db.refreshToken.findUnique({
+      where: { tokenHash },
+      select: { familyId: true },
+    });
+    if (!stored) return; // Si el token no existe, no hay nada que revocar
+
+    await this.prisma.db.refreshToken.updateMany({
+      where: { familyId: stored.familyId },
+      data: { revokedAt: new Date() },
     });
   }
 }

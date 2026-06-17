@@ -116,6 +116,7 @@ model Membership {
 
   user     User   @relation(fields: [userId], references: [id])
   tenant   Tenant @relation(fields: [tenantId], references: [id])
+  refreshTokens RefreshToken[]
 
   // Permisos granulares opcionales sobre el rol base
   permissions MembershipPermission[]
@@ -149,6 +150,23 @@ model MembershipPermission {
   permission Permission @relation(fields: [permissionId], references: [id])
 
   @@id([membershipId, permissionId])
+}
+
+model RefreshToken {
+  id  String  @id @default(uuid())
+  tokenHash String  @unique
+  familyId  String
+  membershipId  String
+
+  membership Membership @relation(fields: [membershipId], references:[id])
+
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime 
+  revokedAt DateTime?
+  replacedById String?
+
+  @@index([familyId])
 }
 
 // ─────────────────────────────────────────

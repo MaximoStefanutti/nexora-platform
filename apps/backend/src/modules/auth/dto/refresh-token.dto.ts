@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsJWT, IsString } from 'class-validator';
+import { IsString, Matches } from 'class-validator';
 
 /**
  * DTO para renovar la sesión.
@@ -11,6 +11,8 @@ export class RefreshTokenDto {
     description: 'Refresh token válido obtenido en login o register',
   })
   @IsString()
-  @IsJWT()
+  @Matches(/^[a-f0-9]{64}$/, {
+    message: 'El refresh token debe ser un string hexadecimal de 64 caracteres',
+  })
   refreshToken: string;
 }
