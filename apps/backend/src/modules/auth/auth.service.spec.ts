@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -14,14 +15,18 @@ describe('AuthService', () => {
           provide: PrismaService,
           useValue: {
             db: {
-              tenant: { findFrist: jest.fn() },
-              user: { findFrist: jest.fn() },
+              tenant: { findFirst: jest.fn() },
+              user: { findFirst: jest.fn() },
             },
           },
         },
         {
           provide: JwtService,
           useValue: { signAsync: jest.fn() },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn() },
         },
       ],
     }).compile();
