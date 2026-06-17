@@ -6,6 +6,8 @@ import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from 'src/common/decorators/public.decorator';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -100,6 +102,12 @@ export class AuthController {
     return this.authService.refresh(dto.refreshToken);
   }
 
+  /**
+   * Cierre de sesión
+   *
+   * POST /auth/logout
+   */
+
   @ApiOperation({
     summary: 'Cerrar sesión',
     description: 'Invalida el refresh token para cerrar la sesión del usuario',
@@ -110,5 +118,49 @@ export class AuthController {
   @Post('logout')
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+  /**
+   * Inica el flujo de reuperación de contraseña.
+   * Si el email corresponde a un usuario, genera un reset token de un solo uso
+   * y vida corta (1h) y lo envia por emial. En desarrollo, el token se escribe
+   * en el log del servidor (no se expone nunca la respuesta HTTP)
+   *
+   * Respode SIEMPRE 204, exista o no el emial, para no filtrar que cuentas
+   * están registradas (anti-enumeración)
+   *
+   * Rate limit estricto: cada llamada dispara el envío de un email.
+   * POST /auth/forgot-password
+   */
+
+  @ApiOperation({
+    summary: 'Solicitar recuperación de contraseña',
+    description: 'Genera y envia un token de recuperación',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Solicitud procesada (no confirma si el emial existe)',
+  })
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @HttpCode(204)
+  @Public()
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  /**
+   * Completa el flujo de recuperación de contraseña.
+   * Valida el reset token (existen, no usado, expirado), actualiza la
+   * contraseña del usuario y revoca TODAS sus sesiones activas (single-use)
+   *
+   * No inica sesión: el usuario debe volver a loguearse con la nueva contraseña.
+   * POST /auth/reset-password
+   */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(204)
+  @Public()
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }

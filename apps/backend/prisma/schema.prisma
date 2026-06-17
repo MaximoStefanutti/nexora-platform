@@ -101,6 +101,7 @@ model User {
   phone    String?
 
   memberships Membership[]
+  passwordReset PasswordResetToken[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -169,8 +170,20 @@ model RefreshToken {
   @@index([familyId])
 }
 
+model PasswordResetToken {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  userId String
+
+  user User @relation(fields: [userId], references:[id])
+
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+}
+
 // ─────────────────────────────────────────
-// MÓDULO: TURNOS / AGENDA
+// MÓDULO: TURNOS // AGENDA
 // ─────────────────────────────────────────
 
 model Service {

@@ -7,7 +7,7 @@ import { IsString, Matches } from 'class-validator';
  */
 export class RefreshTokenDto {
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    example: '550557dd3aad1db0f07cb99325fac6ee32fd...',
     description: 'Refresh token válido obtenido en login o register',
   })
   @IsString()

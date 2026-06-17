@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -20,20 +21,26 @@ import { randomUUID } from 'crypto';
 /**
  * Servicio de autenticación.
  * Maneja el registro de nuevos negocios, el login de usuarios en el contexto
- * de un tenant específico y la renovación de sesiones vía refresh token.
+ * de un tenant específico y la renovación de sesiones vía refresh token y la
+ * recuperación de contraseña olvidada.
  *
  * Estrategia de tokens:
  * - accessToken:  corto (ej. 15m), se manda en cada request (Bearer).
  * - refreshToken: largo (ej. 7d), solo se usa contra POST /auth/refresh
  *   para obtener un access token nuevo sin re-login.
+ * - resetToken: Token opaco de un solo uso y vida corta (1h), emitido por
+ *   /auth/forgot-password y copnsumido por /auth/reset-password.
  *
  * La sesión se puede invalidar en cualquier momento desactivando la
- * membership: tanto JwtStrategy como /auth/refresh revalidan en DB.
+ * membership: tanto JwtStrategy como /auth/refresh revalidan en DB. Un reset
+ * de contraseña exitoso revoca además todas las sesiones activas del usuario.
  */
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
+const RESET_TTL_MS = 60 * 60 * 1000; // 1 hora en milisegundos
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -280,6 +287,69 @@ export class AuthService {
     await this.prisma.db.refreshToken.updateMany({
       where: { familyId: stored.familyId },
       data: { revokedAt: new Date() },
+    });
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.db.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (!user) return; // No revelamos si el email existe o no
+
+    const { raw, hash } = generateTokenHelper();
+    const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+
+    await this.prisma.runInTransaction(async (tx) => {
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await tx.passwordResetToken.create({
+        data: {
+          tokenHash: hash,
+          userId: user.id,
+          expiresAt,
+        },
+      });
+    });
+    this.logger.log(
+      `Password reset token for user ${email}: ${raw} (expires at ${expiresAt.toISOString()})`,
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const tokenHash = hashToken(token);
+    const stored = await this.prisma.db.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+    if (!stored) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    if (stored.usedAt || stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.runInTransaction(async (tx) => {
+      await tx.user.update({
+        where: { id: stored.userId },
+        data: { password: hashedPassword },
+      });
+      await tx.passwordResetToken.update({
+        where: {
+          id: stored.id,
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      });
+      await tx.refreshToken.updateMany({
+        where: { membership: { userId: stored.userId }, revokedAt: null },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
     });
   }
 }
