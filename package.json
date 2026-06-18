@@ -12,16 +12,6 @@
     "lint": "npm run lint --workspaces",
     "prepare": "husky"
   },
-  "lint-staged": {
-    "apps/backend/**/*.ts": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "apps/frontend/**/*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
-  },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
