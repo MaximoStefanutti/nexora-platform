@@ -8,6 +8,7 @@ import { Public } from 'src/common/decorators/public.decorator';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ActivateDto } from './dto/activate.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -176,5 +177,26 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @ApiOperation({
+    summary: 'Token de invitación',
+    description:
+      'Activa la membership: El usuario establece su contraseña usando el token de activación',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Contraseña de invitación actualizada',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token inválido, ya usado o expirado',
+  })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(204)
+  @Public()
+  @Post('activate')
+  activate(@Body() dto: ActivateDto) {
+    return this.authService.activate(dto.token, dto.newPassword);
   }
 }
