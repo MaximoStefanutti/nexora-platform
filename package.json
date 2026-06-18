@@ -17,5 +17,8 @@
     "@commitlint/config-conventional": "^19.8.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.3.0"
+  },
+  "overrides": {
+    "multer": "^2.2.0"
   }
 }
