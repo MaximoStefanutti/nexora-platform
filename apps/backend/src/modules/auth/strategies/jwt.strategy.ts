@@ -51,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: payload.membershipId,
         userId: payload.sub,
         tenantId: payload.tenantId,
-        status: MembershipStatus.REVOKED,
+        status: MembershipStatus.ACTIVE,
       },
     });
 
