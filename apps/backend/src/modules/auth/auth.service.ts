@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import slugify from 'slugify';
-import { SystemRole } from '@prisma/client';
+import { MembershipStatus, SystemRole } from '@prisma/client';
 import { JwtPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { RegisterDto } from './dto/register.dto';
 import {
@@ -137,7 +137,7 @@ export class AuthService {
             userId: user.id,
             tenantId: tenant.id,
             role: SystemRole.OWNER,
-            isActive: true,
+            status: MembershipStatus.ACTIVE,
           },
           select: { id: true },
         });
@@ -181,12 +181,14 @@ export class AuthService {
     const user = await this.prisma.db.user.findFirst({
       where: {
         email,
-        memberships: { some: { tenantId: tenant.id, isActive: true } },
+        memberships: {
+          some: { tenantId: tenant.id, status: MembershipStatus.ACTIVE },
+        },
       },
       omit: { password: false }, // Incluir el hash de password en la respuesta
       include: {
         memberships: {
-          where: { tenantId: tenant.id, isActive: true },
+          where: { tenantId: tenant.id, status: MembershipStatus.ACTIVE },
         },
       },
     });
@@ -241,7 +243,7 @@ export class AuthService {
     if (stored.expiresAt < new Date())
       throw new UnauthorizedException('Refresh token has expired');
 
-    if (!stored.membership.isActive) {
+    if (!stored.membership.status) {
       throw new UnauthorizedException('Membership is no longer active');
     }
 
@@ -349,6 +351,47 @@ export class AuthService {
         data: {
           revokedAt: new Date(),
         },
+      });
+    });
+  }
+
+  async activate(token: string, newPassword: string) {
+    const invitationTokenHash = hashToken(token);
+    const stored = await this.prisma.db.membership.findUnique({
+      where: {
+        invitationTokenHash,
+      },
+    });
+    if (!stored) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+    if (
+      stored.status !== 'PENDING' ||
+      !stored.invitationExpiresAt ||
+      stored.invitationExpiresAt < new Date()
+    ) {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+
+    const hashPassword = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.runInTransaction(async (tx) => {
+      await tx.membership.update({
+        where: {
+          id: stored.id,
+        },
+        data: {
+          invitationTokenHash: null,
+          status: MembershipStatus.ACTIVE,
+          invitationExpiresAt: null,
+        },
+      });
+
+      await tx.user.update({
+        where: {
+          id: stored.userId,
+        },
+        data: { password: hashPassword },
       });
     });
   }

@@ -1,4 +1,4 @@
-import { PrismaClient, SystemRole } from '@prisma/client';
+import { MembershipStatus, PrismaClient, SystemRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -141,7 +141,7 @@ async function main() {
       userId: ownerUser.id,
       tenantId: tenant.id,
       role: SystemRole.OWNER,
-      isActive: true,
+      status: MembershipStatus.ACTIVE,
     },
   });
 

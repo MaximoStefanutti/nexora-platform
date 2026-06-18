@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { SystemRole } from '@prisma/client';
+import { SystemRole, MembershipStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 /**
@@ -18,7 +18,7 @@ export class MembershipHelper {
   /**
    * Valida que el usuario tiene rol OWNER o ADMIN en el tenant.
    * Usar antes de operaciones de gestión (crear, modificar, eliminar miembros,
-   * servicios, eetc.).
+   * servicios, etc.).
    *
    * @param userId - ID del usuario a validar.
    * @param tenantId - ID del tenant.
@@ -33,7 +33,7 @@ export class MembershipHelper {
       where: {
         userId,
         tenantId,
-        isActive: true,
+        status: MembershipStatus.ACTIVE,
         role: { in: [SystemRole.OWNER, SystemRole.ADMIN] },
       },
     });
@@ -58,7 +58,7 @@ export class MembershipHelper {
       where: {
         userId,
         tenantId,
-        isActive: true,
+        status: MembershipStatus.ACTIVE,
         role: SystemRole.OWNER,
       },
     });
@@ -82,7 +82,7 @@ export class MembershipHelper {
     tenantId: string,
   ): Promise<SystemRole | null> {
     const membership = await this.prisma.db.membership.findFirst({
-      where: { userId, tenantId, isActive: true },
+      where: { userId, tenantId, status: MembershipStatus.ACTIVE },
       select: { role: true },
     });
 

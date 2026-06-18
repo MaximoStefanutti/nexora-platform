@@ -6,6 +6,7 @@ import {
   AuthUser,
   JwtPayload,
 } from 'src/common/interfaces/jwt-payload.interface';
+import { MembershipStatus } from '@prisma/client';
 
 /**
  * Estrategia JWT de Passport para validar tokens en cada request.
@@ -50,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: payload.membershipId,
         userId: payload.sub,
         tenantId: payload.tenantId,
-        isActive: true,
+        status: MembershipStatus.REVOKED,
       },
     });
 

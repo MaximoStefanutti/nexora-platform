@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import slugify from 'slugify';
-import { SystemRole } from '@prisma/client';
+import { MembershipStatus, SystemRole } from '@prisma/client';
 
 /**
  * Servicio de gestión de tenants.
@@ -72,7 +72,7 @@ export class TenantService {
           userId: ownerUserId,
           tenantId: tenant.id,
           role: SystemRole.OWNER,
-          isActive: true,
+          status: MembershipStatus.ACTIVE,
         },
       });
 

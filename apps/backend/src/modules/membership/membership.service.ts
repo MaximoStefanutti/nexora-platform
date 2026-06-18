@@ -2,14 +2,17 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
-import { SystemRole } from '@prisma/client';
+import { MembershipStatus, SystemRole } from '@prisma/client';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MembershipHelper } from 'src/common/helpers/membership.helper';
+import { randomBytes } from 'crypto';
+import { generateTokenHelper } from 'src/common/helpers/generate-token.helper';
 
 /**
  * Servicio de gestión de membresías.
@@ -24,8 +27,11 @@ import { MembershipHelper } from 'src/common/helpers/membership.helper';
  * - Si el usuario no existe en el sistema, se crea con password temporal.
  */
 
+const INVITE_TTL_MS = 1 * 24 * 60 * 60 * 1000; // 24 horas en ms
+
 @Injectable()
 export class MembershipService {
+  private readonly logger = new Logger(MembershipService.name);
   constructor(
     private prisma: PrismaService,
     private membershipHelper: MembershipHelper,
@@ -44,7 +50,7 @@ export class MembershipService {
       select: {
         id: true,
         role: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         user: {
           select: {
@@ -85,7 +91,10 @@ export class MembershipService {
       await this.membershipHelper.validateIsOwner(invitedByUserId, tenantId);
     }
 
-    return this.prisma.runInTransaction(async (tx) => {
+    const { raw, hash } = generateTokenHelper();
+    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+
+    const result = await this.prisma.runInTransaction(async (tx) => {
       // Buscamos el usuario por emial - si no existe lo creamos
       let user = await tx.user.findUnique({
         where: { email: dto.email },
@@ -97,7 +106,10 @@ export class MembershipService {
          * Creamos el usuario con password temporal.
          * TODO: En producción eviar email de bienvenida con link para setear password.
          */
-        const tempPassword = await bcrypt.hash(`temp_${Date.now()}`, 12);
+        const tempPassword = await bcrypt.hash(
+          randomBytes(32).toString('hex'),
+          12,
+        );
         user = await tx.user.create({
           data: {
             email: dto.email,
@@ -117,46 +129,57 @@ export class MembershipService {
         },
       });
 
-      if (existing?.isActive) {
+      if (existing?.status === MembershipStatus.ACTIVE) {
         throw new ConflictException(
           `The user is already a member of this tenant`,
         );
       }
 
       // Si tiene meembership inactiva la reactivamos con el nuevo rol
-      if (existing && !existing.isActive) {
+      if (existing) {
         return tx.membership.update({
           where: { id: existing.id },
-          data: { role: dto.role as SystemRole, isActive: true },
+          data: {
+            role: dto.role as SystemRole,
+            status: MembershipStatus.PENDING,
+            invitationExpiresAt: expiresAt,
+            invitationTokenHash: hash,
+          },
           select: {
             id: true,
             role: true,
-            isActive: true,
+            status: true,
+            user: {
+              select: { id: true, email: true, name: true },
+            },
+          },
+        });
+      } else {
+        // Si no tiene membership previa, la creamos.
+        return tx.membership.create({
+          data: {
+            userId: user.id,
+            tenantId,
+            role: dto.role as SystemRole,
+            status: MembershipStatus.PENDING,
+            invitationExpiresAt: expiresAt,
+            invitationTokenHash: hash,
+          },
+          select: {
+            id: true,
+            role: true,
+            status: true,
             user: {
               select: { id: true, email: true, name: true },
             },
           },
         });
       }
-
-      // Si no tiene membership previa, la creamos.
-      return tx.membership.create({
-        data: {
-          userId: user.id,
-          tenantId,
-          role: dto.role as SystemRole,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          role: true,
-          isActive: true,
-          user: {
-            select: { id: true, email: true, name: true },
-          },
-        },
-      });
     });
+    this.logger.log(
+      `Invitation sent to ${dto.email}: ${raw} (expires at ${expiresAt.toISOString()})`,
+    );
+    return result;
   }
 
   /**
@@ -201,7 +224,7 @@ export class MembershipService {
       select: {
         id: true,
         role: true,
-        isActive: true,
+        status: true,
         user: {
           select: { id: true, email: true, name: true },
         },
@@ -249,8 +272,8 @@ export class MembershipService {
     // Descativamos la membership en vez de eliminarla (soft remove)
     return this.prisma.db.membership.update({
       where: { id: membershipId },
-      data: { isActive: false },
-      select: { id: true, isActive: true },
+      data: { status: MembershipStatus.REVOKED },
+      select: { id: true, status: true },
     });
   }
 }

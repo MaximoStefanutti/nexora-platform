@@ -37,17 +37,23 @@ enum CustomerStatus {
   BLOCKED
 }
 
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
 // ─────────────────────────────────────────
 // PLANES Y MÓDULOS
 // ─────────────────────────────────────────
 
 model Plan {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  price       Decimal  @db.Decimal(10, 2)
+  id          String  @id @default(uuid())
+  name        String  @unique
+  price       Decimal @db.Decimal(10, 2)
   maxStaff    Int
   maxServices Int
-  isActive    Boolean  @default(true)
+  isActive    Boolean @default(true)
 
   // Módulos habilitados para este plan
   hasAppointments Boolean @default(true)
@@ -67,22 +73,22 @@ model Plan {
 // ─────────────────────────────────────────
 
 model Tenant {
-  id        String    @id @default(uuid())
-  name      String
-  slug      String    @unique
-  isActive  Boolean   @default(true)
+  id       String  @id @default(uuid())
+  name     String
+  slug     String  @unique
+  isActive Boolean @default(true)
 
-  planId    String?
-  plan      Plan?     @relation(fields: [planId], references: [id])
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
 
-  memberships   Membership[]
-  services      Service[]
-  customers     Customer[]
-  appointments  Appointment[]
+  memberships  Membership[]
+  services     Service[]
+  customers    Customer[]
+  appointments Appointment[]
 
   //Auditoria
-  createdBy      String?
-  updatedBy      String?
+  createdBy String?
+  updatedBy String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -100,7 +106,7 @@ model User {
   name     String?
   phone    String?
 
-  memberships Membership[]
+  memberships   Membership[]
   passwordReset PasswordResetToken[]
 
   createdAt DateTime  @default(now())
@@ -109,24 +115,26 @@ model User {
 }
 
 model Membership {
-  id       String     @id @default(uuid())
-  role     SystemRole @default(STAFF)
+  id                  String           @id @default(uuid())
+  role                SystemRole       @default(STAFF)
+  status              MembershipStatus @default(PENDING)
+  invitationTokenHash String?          @unique
+  invitationExpiresAt DateTime?
 
   userId   String
   tenantId String
 
-  user     User   @relation(fields: [userId], references: [id])
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
   refreshTokens RefreshToken[]
 
   // Permisos granulares opcionales sobre el rol base
   permissions MembershipPermission[]
 
   //Auditoria
-  createdBy      String?
-  updatedBy      String?
+  createdBy String?
+  updatedBy String?
 
-  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -154,32 +162,31 @@ model MembershipPermission {
 }
 
 model RefreshToken {
-  id  String  @id @default(uuid())
-  tokenHash String  @unique
-  familyId  String
-  membershipId  String
+  id           String @id @default(uuid())
+  tokenHash    String @unique
+  familyId     String
+  membershipId String
 
-  membership Membership @relation(fields: [membershipId], references:[id])
+  membership Membership @relation(fields: [membershipId], references: [id])
 
-
-  createdAt DateTime @default(now())
-  expiresAt DateTime 
-  revokedAt DateTime?
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
   replacedById String?
 
   @@index([familyId])
 }
 
 model PasswordResetToken {
-  id String @id @default(uuid())
+  id        String @id @default(uuid())
   tokenHash String @unique
-  userId String
+  userId    String
 
-  user User @relation(fields: [userId], references:[id])
+  user User @relation(fields: [userId], references: [id])
 
   expiresAt DateTime
-  usedAt DateTime?
-  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // ─────────────────────────────────────────
@@ -190,7 +197,7 @@ model Service {
   id          String  @id @default(uuid())
   name        String
   description String?
-  duration    Int     // en minutos
+  duration    Int // en minutos
   price       Decimal @db.Decimal(10, 2)
   isActive    Boolean @default(true)
 
@@ -200,11 +207,11 @@ model Service {
   appointments Appointment[]
 
   //Auditoria
-  createdBy      String?
-  updatedBy      String?
+  createdBy String?
+  updatedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([tenantId])
@@ -220,15 +227,15 @@ model Appointment {
   tenantId   String
   customerId String
   serviceId  String
-  staffId    String           // userId del miembro con rol STAFF o ADMIN
+  staffId    String // userId del miembro con rol STAFF o ADMIN
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
   customer Customer @relation(fields: [customerId], references: [id])
   service  Service  @relation(fields: [serviceId], references: [id])
 
   //Auditoria
-  createdBy      String?
-  updatedBy      String?
+  createdBy String?
+  updatedBy String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -236,7 +243,7 @@ model Appointment {
   @@index([tenantId])
   @@index([customerId])
   @@index([staffId])
-  @@index([startTime])        // clave para queries de agenda por fecha
+  @@index([startTime]) // clave para queries de agenda por fecha
 }
 
 // ─────────────────────────────────────────
@@ -244,12 +251,12 @@ model Appointment {
 // ─────────────────────────────────────────
 
 model Customer {
-  id      String         @id @default(uuid())
-  name    String
-  email   String?
-  phone   String?
-  status  CustomerStatus @default(ACTIVE)
-  notes   String?
+  id     String         @id @default(uuid())
+  name   String
+  email  String?
+  phone  String?
+  status CustomerStatus @default(ACTIVE)
+  notes  String?
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -257,13 +264,13 @@ model Customer {
   appointments Appointment[]
 
   //Auditoria
-  createdBy      String?
-  updatedBy      String?
+  createdBy String?
+  updatedBy String?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@unique([tenantId, email])  // email único por tenant, no global
+  @@unique([tenantId, email]) // email único por tenant, no global
   @@index([tenantId])
 }

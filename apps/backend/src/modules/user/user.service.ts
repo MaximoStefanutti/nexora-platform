@@ -98,7 +98,7 @@ export class UserService {
           select: {
             id: true,
             role: true,
-            isActive: true,
+            status: true,
           },
         },
       },

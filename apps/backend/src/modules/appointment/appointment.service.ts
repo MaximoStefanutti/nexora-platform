@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, MembershipStatus } from '@prisma/client';
 import { AppointmentHelper } from 'src/common/helpers/appointment.helper';
 import { MembershipHelper } from 'src/common/helpers/membership.helper';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -168,7 +168,7 @@ export class AppointmentService {
       where: {
         userId: dto.staffId,
         tenantId,
-        isActive: true,
+        status: MembershipStatus.ACTIVE,
       },
     });
 
